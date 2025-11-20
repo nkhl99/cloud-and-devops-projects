@@ -1,0 +1,1 @@
+gcloud services enable compute.googleapis.com servicemanagement.googleapis.com storage-api.googleapis.com - why?
