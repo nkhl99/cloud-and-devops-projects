@@ -1,0 +1,22 @@
+---
+- name: Hardened Web Server   # Just a description
+  hosts: default              # Packer automatically sets this up. It means "The VM we just created"
+  become: true                 # IMPORTANT: This means "Run as Root/Sudo". We need admin rights to install apps.
+
+  tasks:                      # The To-Do List
+    - name: Install Nginx
+      apt:                    # "apt" is the module for Ubuntu Package Manager
+        name: nginx           # Package name
+        state: present        # Goal: Make sure it exists. If it's already there, do nothing.
+        update_cache: yes     # Equivalent to "apt-get update"
+
+    - name: Ensure Nginx is running
+      service:                # "service" is the module to manage background processes
+        name: nginx
+        state: started        # Goal: Make sure it is ON
+        enabled: yes          # Goal: Make sure it auto-starts if the server reboots
+
+    - name: Remove 'telnet'
+      apt:
+        name: telnet
+        state: absent         # Goal: Make sure it is GONE. This is security hardening.
