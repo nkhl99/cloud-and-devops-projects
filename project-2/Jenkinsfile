@@ -31,15 +31,17 @@ pipeline {
 
     stage('Static Code Analysis') {
       steps {
-        withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_TOKEN')]) {
-          sh '''
-            cd project-2/app
-            sonar-scanner \
-              -Dsonar.projectKey=flask-app \
-              -Dsonar.sources=. \
-              -Dsonar.host.url=${SONAR_HOST_URL} \
-              -Dsonar.login=${SONAR_TOKEN}
-          '''
+    withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_TOKEN')]) {
+      sh '''
+        docker run --rm \
+          -v ${PWD}/project-2/app:/usr/src \
+          -w /usr/src \
+          sonarsource/sonar-scanner-cli \
+          -Dsonar.projectKey=flask-app \
+          -Dsonar.sources=. \
+          -Dsonar.host.url=${SONAR_HOST_URL} \
+          -Dsonar.login=${SONAR_TOKEN}
+        '''
         }
       }
     }
