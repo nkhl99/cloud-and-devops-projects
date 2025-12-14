@@ -59,8 +59,8 @@ pipeline {
           sh '''
             sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" project-2/manifest/deployment.yaml
 
-            git config user.email "jenkins@ci.com"
-            git config user.name "Jenkins CI"
+            git config user.email "nkhlkumar01@gmail.com"
+            git config user.name "nkhl99"
 
             git add project-2/manifest/deployment.yaml
             git commit -m "Update image to ${BUILD_NUMBER}"
