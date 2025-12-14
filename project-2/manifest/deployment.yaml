@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: flask-app-cicd
-        image: nikhil230/ci-cd:latest
+        image: nikhil230/ci-cd:replaceImageTag
         ports:
         - containerPort: 5000
