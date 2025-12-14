@@ -1,6 +1,6 @@
 pipeline {
   agent any
-  
+
   environment {
     IMAGE_NAME = "nikhil230/ci-cd"
     SONAR_HOST_URL = "http://localhost:9000"
@@ -17,7 +17,7 @@ pipeline {
     stage('Install Dependencies') {
       steps {
         sh '''
-          cd cloud-and-devops-projects/project-2/app
+          cd project-2/app
           pip install -r requirements.txt
           pip install sonar-scanner-cli
         '''
@@ -28,7 +28,7 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_TOKEN')]) {
           sh '''
-            cd cloud-and-devops-projects/project-2/app
+            cd project-2/app
             sonar-scanner \
               -Dsonar.projectKey=flask-app \
               -Dsonar.sources=. \
@@ -42,7 +42,7 @@ pipeline {
     stage('Build Docker Image') {
       steps {
         sh '''
-          cd cloud-and-devops-projects/project-2/app
+          cd project-2/app
           docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
         '''
       }
@@ -67,14 +67,14 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
           sh '''
-            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" cloud-and-devops-projects/project-2/manifest/deployment.yaml
+            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" project-2/manifest/deployment.yaml
 
             git config user.email "jenkins@ci.com"
             git config user.name "Jenkins CI"
 
-            git add cloud-and-devops-projects/project-2/manifest/deployment.yaml
+            git add project-2/manifest/deployment.yaml
             git commit -m "Update image to ${BUILD_NUMBER}"
-            git push https://${GITHUB_TOKEN}@github.com/<YOUR_GITHUB_USERNAME>/<REPO_NAME>.git main
+            git push https://${GITHUB_TOKEN}@github.com/nkhl99/cloud-and-devops-projects.git main
           '''
         }
       }
