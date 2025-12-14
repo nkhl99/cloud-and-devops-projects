@@ -1,9 +1,9 @@
 pipeline {
   agent {
-    docker {
-      image 'docker:27-cli'
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-    }
+    // docker {
+    //   image 'docker:27-cli'
+    //   args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+    // }
   }
 
   environment {
