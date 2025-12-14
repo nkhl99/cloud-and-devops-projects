@@ -1,5 +1,6 @@
 pipeline {
   agent any
+  
   environment {
     IMAGE_NAME = "nikhil230/ci-cd"
     SONAR_HOST_URL = "http://localhost:9000"
