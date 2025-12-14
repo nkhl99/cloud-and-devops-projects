@@ -24,7 +24,7 @@ pipeline {
         sh '''
           cd project-2/app
           pip install -r requirements.txt
-          pip install sonar-scanner-cli
+          pip install pysonar
         '''
       }
     }
