@@ -20,31 +20,42 @@ pipeline {
     }
 
     stage('Install Dependencies') {
-      steps {
+    steps {
         sh '''
-          cd project-2/app
-          pip install -r requirements.txt
-          pip install pysonar
+        cd project-2/app
+        pip install -r requirements.txt
+
+        # Install curl and unzip (if not already present)
+        apt-get update && apt-get install -y curl unzip
+
+        # Download and install Sonar Scanner CLI
+        cd /tmp
+        curl -L -O https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.9.3.731-linux.zip
+        unzip sonar-scanner-cli-4.9.3.731-linux.zip -d /opt
+        export PATH=$PATH:/opt/sonar-scanner-4.9.3.731-linux/bin
         '''
-      }
+    }
     }
 
     stage('Static Code Analysis') {
-      steps {
-    withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_TOKEN')]) {
-      sh '''
-        docker run --rm \
-          -v ${PWD}/project-2/app:/usr/src \
-          -w /usr/src \
-          sonarsource/sonar-scanner-cli \
-          -Dsonar.projectKey=flask-app \
-          -Dsonar.sources=. \
-          -Dsonar.host.url=${SONAR_HOST_URL} \
-          -Dsonar.login=${SONAR_TOKEN}
+    steps {
+        withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_TOKEN')]) {
+        sh '''
+            cd project-2/app
+            # Make sure PATH includes Sonar Scanner
+            export PATH=$PATH:/opt/sonar-scanner-4.9.3.731-linux/bin
+
+            # Run analysis
+            sonar-scanner \
+            -Dsonar.projectKey=flask-app \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=${SONAR_HOST_URL} \
+            -Dsonar.login=${SONAR_TOKEN}
         '''
         }
-      }
     }
+    }
+
 
     stage('Build Docker Image') {
       steps {
