@@ -25,13 +25,13 @@ pipeline {
         cd project-2/app
         pip install -r requirements.txt
 
-        # Install curl and unzip (if not already present)
-        apt-get update && apt-get install -y curl unzip
+        # Install curl (tar is usually present)
+        apt-get update && apt-get install -y curl
 
         # Download and install Sonar Scanner CLI
         cd /tmp
-        curl -L -O https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.9.3.731-linux.zip
-        unzip sonar-scanner-cli-4.9.3.731-linux.zip -d /opt
+        curl -fSL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.9.3.731-linux.tgz -o sonar-scanner-cli.tgz
+        tar -xzf sonar-scanner-cli.tgz -C /opt
         export PATH=$PATH:/opt/sonar-scanner-4.9.3.731-linux/bin
         '''
     }
