@@ -1,5 +1,10 @@
 pipeline {
-  agent any
+  agent {
+    docker {
+      image 'python:3.11'
+      args '-u root:root'  // optional, to run as root
+    }
+  }
 
   environment {
     IMAGE_NAME = "nikhil230/ci-cd"
