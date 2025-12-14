@@ -1,73 +1,73 @@
-pipeline {
-  agent {
-    docker {
-      image 'python:3.11'
-      args '-u root:root'  // optional, to run as root
-    }
-  }
+// pipeline {
+//   agent {
+//     docker {
+//       image 'python:3.11'
+//       args '-u root:root'  // optional, to run as root
+//     }
+//   }
 
-  environment {
-    IMAGE_NAME = "nikhil230/ci-cd"
-    SONAR_HOST_URL = "http://localhost:9000"
-  }
+//   environment {
+//     IMAGE_NAME = "nikhil230/ci-cd"
+//     SONAR_HOST_URL = "http://localhost:9000"
+//   }
 
-  stages {
+//   stages {
 
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
-    }
+//     stage('Checkout') {
+//       steps {
+//         checkout scm
+//       }
+//     }
 
-    stage('Install Dependencies') {
-        steps {
-            sh '''
-            cd project-2/app
-            pip install -r requirements.txt
-            '''
-        }
-    }
+//     stage('Install Dependencies') {
+//         steps {
+//             sh '''
+//             cd project-2/app
+//             pip install -r requirements.txt
+//             '''
+//         }
+//     }
 
 
-    stage('Build Docker Image') {
-      steps {
-        sh '''
-          cd project-2/app
-          docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
-        '''
-      }
-    }
+//     stage('Build Docker Image') {
+//       steps {
+//         sh '''
+//           cd project-2/app
+//           docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+//         '''
+//       }
+//     }
 
-    stage('Push Docker Image') {
-      steps {
-        withCredentials([usernamePassword(
-          credentialsId: 'docker-cred',
-          usernameVariable: 'DOCKER_USER',
-          passwordVariable: 'DOCKER_PASS'
-        )]) {
-          sh '''
-            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-            docker push ${IMAGE_NAME}:${BUILD_NUMBER}
-          '''
-        }
-      }
-    }
+//     stage('Push Docker Image') {
+//       steps {
+//         withCredentials([usernamePassword(
+//           credentialsId: 'docker-cred',
+//           usernameVariable: 'DOCKER_USER',
+//           passwordVariable: 'DOCKER_PASS'
+//         )]) {
+//           sh '''
+//             echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+//             docker push ${IMAGE_NAME}:${BUILD_NUMBER}
+//           '''
+//         }
+//       }
+//     }
 
-    stage('Update Deployment Manifest') {
-      steps {
-        withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-          sh '''
-            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" project-2/manifest/deployment.yaml
+//     stage('Update Deployment Manifest') {
+//       steps {
+//         withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+//           sh '''
+//             sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" project-2/manifest/deployment.yaml
 
-            git config user.email "nkhlkumar01@gmail.com"
-            git config user.name "nkhl99"
+//             git config user.email "nkhlkumar01@gmail.com"
+//             git config user.name "nkhl99"
 
-            git add project-2/manifest/deployment.yaml
-            git commit -m "Update image to ${BUILD_NUMBER}"
-            git push https://${GITHUB_TOKEN}@github.com/nkhl99/cloud-and-devops-projects.git main
-          '''
-        }
-      }
-    }
-  }
-}
+//             git add project-2/manifest/deployment.yaml
+//             git commit -m "Update image to ${BUILD_NUMBER}"
+//             git push https://${GITHUB_TOKEN}@github.com/nkhl99/cloud-and-devops-projects.git main
+//           '''
+//         }
+//       }
+//     }
+//   }
+// }
