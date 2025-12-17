@@ -29,7 +29,7 @@ The pipeline:
 
 ```
 cloud-and-devops-projects/
- └── project-2/
+ └── complete-cicd/
       ├── app/
       │    ├── Dockerfile
       │    ├── main.py
@@ -325,7 +325,7 @@ image: nikhil230/ci-cd:<BUILD_NUMBER>
 ### 📌 Stage 7 – Commit & Push Back to GitHub
 
 ```groovy
-git add project-2/manifest/deployment.yaml
+git add complete-cicd/manifest/deployment.yaml
 git commit -m "Update image tag to ${BUILD_NUMBER}"
 git push https://$GIT_USER:$GIT_TOKEN@github.com/... HEAD:main
 ```

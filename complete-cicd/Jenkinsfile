@@ -15,7 +15,7 @@ pipeline {
 
         stage('Install deps & basic checks') {
             steps {
-                dir('project-2/app') {
+                dir('complete-cicd/app') {
                     sh '''
                     python3 -m venv venv
                     . venv/bin/activate
@@ -32,7 +32,7 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('local-sonar') {
-                    dir('project-2') {
+                    dir('complete-cicd') {
                         sh """
                         ${tool 'sonar-scanner'}/bin/sonar-scanner
                         """
@@ -43,7 +43,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                dir('project-2/app') {
+                dir('complete-cicd/app') {
                     sh '''
                     docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
                     '''
@@ -64,11 +64,11 @@ pipeline {
         stage('Update Kubernetes Manifest') {
             steps {
                 sh '''
-                # Update image tag in deployment.yaml under project-2/manifest
-                sed -i "s|image: nikhil230/ci-cd:.*|image: nikhil230/ci-cd:${BUILD_NUMBER}|" project-2/manifest/deployment.yaml
+                # Update image tag in deployment.yaml under complete-cicd/manifest
+                sed -i "s|image: nikhil230/ci-cd:.*|image: nikhil230/ci-cd:${BUILD_NUMBER}|" complete-cicd/manifest/deployment.yaml
 
                 echo "Updated deployment.yaml:"
-                cat project-2/manifest/deployment.yaml
+                cat complete-cicd/manifest/deployment.yaml
                 '''
             }
         }
@@ -87,7 +87,7 @@ pipeline {
                     git status
 
                     # Add only the changed manifest file
-                    git add project-2/manifest/deployment.yaml || echo "Nothing to add"
+                    git add complete-cicd/manifest/deployment.yaml || echo "Nothing to add"
 
                     # Commit changes if any
                     git commit -m "Update image tag to ${BUILD_NUMBER}" || echo "No changes to commit"
@@ -101,7 +101,7 @@ pipeline {
 
         stage('Archive Manifests') {
             steps {
-                archiveArtifacts artifacts: 'project-2/manifest/*.yaml', fingerprint: true
+                archiveArtifacts artifacts: 'complete-cicd/manifest/*.yaml', fingerprint: true
             }
         }
     }
