@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: flask-app-cicd
-        image: nikhil230/ci-cd:3
+        image: nikhil230/ci-cd:2
         ports:
         - containerPort: 5000
