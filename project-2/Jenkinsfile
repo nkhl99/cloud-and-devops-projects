@@ -71,7 +71,7 @@ pipeline {
             }
         }
 
-        stage('Commit & Push Manifests') {
+                stage('Commit & Push Manifests') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-creds',
                                                   usernameVariable: 'GIT_USER',
@@ -81,7 +81,7 @@ pipeline {
                     git config user.name "Jenkins CI"
                     git config user.email "jenkins@example.com"
 
-                    # Show current status
+                    # Show current status (for debugging)
                     git status
 
                     # Add only the changed manifest file
@@ -90,19 +90,8 @@ pipeline {
                     # Commit changes if any
                     git commit -m "Update image tag to ${BUILD_NUMBER}" || echo "No changes to commit"
 
-                    # Prepare repo URL with credentials for push
-                    REPO_URL=$(git config --get remote.origin.url)
-
-                    # Ensure it's HTTPS
-                    if echo "$REPO_URL" | grep -q "^git@github.com"; then
-                        echo "Remote is SSH; converting to HTTPS"
-                        REPO_URL="https://github.com/${REPO_URL#*:}"
-                    fi
-
-                    REPO_URL_WITH_CREDS=${REPO_URL/https:\/\//https://$GIT_USER:$GIT_TOKEN@}
-
-                    # Push to main branch
-                    git push "$REPO_URL_WITH_CREDS" HEAD:main || echo "Push failed"
+                    # Push to main branch using GitHub credentials
+                    git push https://$GIT_USER:$GIT_TOKEN@github.com/nkhl99/cloud-and-devops-projects.git HEAD:main || echo "Push failed (maybe no changes)"
                     '''
                 }
             }
