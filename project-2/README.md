@@ -1,5 +1,3 @@
-## 0. What you already have
-
 Repo layout (simplified):
 
 ```text
