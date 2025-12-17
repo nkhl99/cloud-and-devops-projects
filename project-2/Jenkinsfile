@@ -33,8 +33,9 @@ pipeline {
             steps {
                 withSonarQubeEnv('local-sonar') {
                     dir('project-2') {
-                        // sonar-project.properties is in project-2
-                        sh 'sonar-scanner'
+                        sh """
+                        ${tool 'sonar-scanner'}/bin/sonar-scanner
+                        """
                     }
                 }
             }
