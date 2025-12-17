@@ -1,73 +1,117 @@
-// pipeline {
-//   agent {
-//     docker {
-//       image 'python:3.11'
-//       args '-u root:root'  // optional, to run as root
-//     }
-//   }
+pipeline {
+    agent any
 
-//   environment {
-//     IMAGE_NAME = "nikhil230/ci-cd"
-//     SONAR_HOST_URL = "http://localhost:9000"
-//   }
+    environment {
+        IMAGE_NAME      = "nikhil230/ci-cd"
+        DOCKERHUB_CREDS = credentials('dockerhub-creds')
+    }
 
-//   stages {
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
 
-//     stage('Checkout') {
-//       steps {
-//         checkout scm
-//       }
-//     }
+        stage('Install deps & basic checks') {
+            steps {
+                sh '''
+                cd app
+                python3 -m venv venv
+                . venv/bin/activate
+                pip install --upgrade pip
+                pip install -r requirements.txt
 
-//     stage('Install Dependencies') {
-//         steps {
-//             sh '''
-//             cd project-2/app
-//             pip install -r requirements.txt
-//             '''
-//         }
-//     }
+                # Basic syntax check for now
+                python -m py_compile main.py
+                '''
+            }
+        }
 
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('local-sonar') {
+                    sh '''
+                    sonar-scanner \
+                      -Dsonar.projectBaseDir=. \
+                      -Dsonar.sources=app
+                    '''
+                }
+            }
+        }
 
-//     stage('Build Docker Image') {
-//       steps {
-//         sh '''
-//           cd project-2/app
-//           docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
-//         '''
-//       }
-//     }
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                cd app
+                docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+                '''
+            }
+        }
 
-//     stage('Push Docker Image') {
-//       steps {
-//         withCredentials([usernamePassword(
-//           credentialsId: 'docker-cred',
-//           usernameVariable: 'DOCKER_USER',
-//           passwordVariable: 'DOCKER_PASS'
-//         )]) {
-//           sh '''
-//             echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-//             docker push ${IMAGE_NAME}:${BUILD_NUMBER}
-//           '''
-//         }
-//       }
-//     }
+        stage('Push to Docker Hub') {
+            steps {
+                sh '''
+                echo "${DOCKERHUB_CREDS_PSW}" | docker login -u "${DOCKERHUB_CREDS_USR}" --password-stdin
+                docker push ${IMAGE_NAME}:${BUILD_NUMBER}
+                docker logout
+                '''
+            }
+        }
 
-//     stage('Update Deployment Manifest') {
-//       steps {
-//         withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-//           sh '''
-//             sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" project-2/manifest/deployment.yaml
+        stage('Update Kubernetes Manifest') {
+            steps {
+                sh '''
+                # Update image tag in deployment.yaml
+                sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" manifest/deployment.yaml
 
-//             git config user.email "nkhlkumar01@gmail.com"
-//             git config user.name "nkhl99"
+                echo "Updated deployment.yaml:"
+                cat manifest/deployment.yaml
+                '''
+            }
+        }
 
-//             git add project-2/manifest/deployment.yaml
-//             git commit -m "Update image to ${BUILD_NUMBER}"
-//             git push https://${GITHUB_TOKEN}@github.com/nkhl99/cloud-and-devops-projects.git main
-//           '''
-//         }
-//       }
-//     }
-//   }
-// }
+        stage('Commit & Push Manifests') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'github-creds',
+                                                  usernameVariable: 'GIT_USER',
+                                                  passwordVariable: 'GIT_TOKEN')]) {
+                    sh '''
+                    # Configure Git identity for Jenkins
+                    git config user.name "Jenkins CI"
+                    git config user.email "jenkins@example.com"
+
+                    # Show current status
+                    git status
+
+                    # Add only the changed manifest file
+                    git add manifest/deployment.yaml || echo "Nothing to add"
+
+                    # Commit changes if any
+                    git commit -m "Update image tag to ${BUILD_NUMBER}" || echo "No changes to commit"
+
+                    # Prepare repo URL with credentials for push
+                    REPO_URL=$(git config --get remote.origin.url)
+
+                    # Ensure it's HTTPS
+                    if echo "$REPO_URL" | grep -q "^git@github.com"; then
+                        echo "Remote is SSH; converting to HTTPS"
+                        REPO_URL="https://github.com/${REPO_URL#*:}"
+                    fi
+
+                    REPO_URL_WITH_CREDS=${REPO_URL/https:\/\//https://$GIT_USER:$GIT_TOKEN@}
+
+                    # Push to main branch
+                    git push "$REPO_URL_WITH_CREDS" HEAD:main || echo "Push failed"
+                    '''
+                }
+            }
+        }
+
+        stage('Archive Manifests') {
+            steps {
+                archiveArtifacts artifacts: 'manifest/*.yaml', fingerprint: true
+            }
+        }
+    }
+}
