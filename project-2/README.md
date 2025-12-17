@@ -142,16 +142,16 @@ Restart if asked.
 
   * Kind: **Username with password**
   * ID: `dockerhub-creds`
-  * Username: `nikhil230`
-  * Password: `dckr_pat_oDvDWpwRnz6xEICGviNnkjykVQc`
+  * Username: `usename`
+  * Password: `dckr_132425`
 
 **SonarQube token**
 
 * Kind: **Secret text**
 * ID: `sonarqube-token`
-* Secret: squ_84e79d774accbc58667d58fd52f49e0e7a333c61
+* Secret: squ_test
 
-**github token** - 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
+**github token** - ghp_test
 
 ### 4.3 Configure SonarQube server in Jenkins
 
