@@ -15,37 +15,38 @@ pipeline {
 
         stage('Install deps & basic checks') {
             steps {
-                sh '''
-                cd app
-                python3 -m venv venv
-                . venv/bin/activate
-                pip install --upgrade pip
-                pip install -r requirements.txt
+                dir('project-2/app') {
+                    sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
 
-                # Basic syntax check for now
-                python -m py_compile main.py
-                '''
+                    # Basic syntax check for now
+                    python -m py_compile main.py
+                    '''
+                }
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('local-sonar') {
-                    sh '''
-                    sonar-scanner \
-                      -Dsonar.projectBaseDir=. \
-                      -Dsonar.sources=app
-                    '''
+                    dir('project-2') {
+                        // sonar-project.properties is in project-2
+                        sh 'sonar-scanner'
+                    }
                 }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh '''
-                cd app
-                docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
-                '''
+                dir('project-2/app') {
+                    sh '''
+                    docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+                    '''
+                }
             }
         }
 
@@ -62,16 +63,16 @@ pipeline {
         stage('Update Kubernetes Manifest') {
             steps {
                 sh '''
-                # Update image tag in deployment.yaml
-                sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" manifest/deployment.yaml
+                # Update image tag in deployment.yaml under project-2/manifest
+                sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" project-2/manifest/deployment.yaml
 
                 echo "Updated deployment.yaml:"
-                cat manifest/deployment.yaml
+                cat project-2/manifest/deployment.yaml
                 '''
             }
         }
 
-                stage('Commit & Push Manifests') {
+        stage('Commit & Push Manifests') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-creds',
                                                   usernameVariable: 'GIT_USER',
@@ -85,7 +86,7 @@ pipeline {
                     git status
 
                     # Add only the changed manifest file
-                    git add manifest/deployment.yaml || echo "Nothing to add"
+                    git add project-2/manifest/deployment.yaml || echo "Nothing to add"
 
                     # Commit changes if any
                     git commit -m "Update image tag to ${BUILD_NUMBER}" || echo "No changes to commit"
@@ -99,7 +100,7 @@ pipeline {
 
         stage('Archive Manifests') {
             steps {
-                archiveArtifacts artifacts: 'manifest/*.yaml', fingerprint: true
+                archiveArtifacts artifacts: 'project-2/manifest/*.yaml', fingerprint: true
             }
         }
     }
