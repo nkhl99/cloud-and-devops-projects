@@ -1,103 +1,93 @@
-## 0. What you already have
+Nice, let’s wire the whole thing cleanly end-to-end 👇
 
-Repo layout (simplified):
+I’ll give you:
 
-```text
-app/
-  Dockerfile
-  main.py
-  requirements.txt   # contains: flask
-manifest/
-  deployment.yaml
-  service.yaml
-```
-
-Your `deployment.yaml` already uses a placeholder tag: 
-
-```yaml
-containers:
-- name: flask-app-cicd
-  image: nikhil230/ci-cd:replaceImageTag
-  ports:
-  - containerPort: 5000
-```
-
-Service exposes it as NodePort on 8080 → 5000. 
+* **All containers to run** (Jenkins + SonarQube)
+* **Every credential/secret** to create (names + where)
+* **Repo structure**
+* **Final Jenkinsfile** (including GitHub commit & push)
+* **sonar-project.properties**
 
 ---
 
-## 1. Target CI flow (what we’re building)
+## 1️⃣ Prerequisites on your Ubuntu machine
 
-**On each Jenkins build:**
-
-1. Checkout repo
-2. (Optional but recommended) run Python tests / basic checks
-3. Run **SonarQube** analysis on code
-4. Build Docker image:
-
-   * `nikhil230/ci-cd:${BUILD_NUMBER}`
-5. Push image to Docker Hub
-6. Update `manifest/deployment.yaml` image tag to `nikhil230/ci-cd:${BUILD_NUMBER}`
-7. Archive updated manifest for CD (ArgoCD/minikube later)
-
-We’ll use:
-
-* **Jenkins in Docker**
-* **SonarQube in Docker (community edition)**
-* Your host Docker to build/push images.
-
----
-
-## 2. Start SonarQube (Docker, localhost)
-
-On Ubuntu (with Docker installed):
+You already have **Docker** ✅
+Also make sure you have:
 
 ```bash
-# Create a Docker network for Jenkins + Sonar to talk easily
-docker network create cicd-net
+docker --version
+```
 
-# Run SonarQube (community)
+Create a Docker network for Jenkins + SonarQube:
+
+```bash
+docker network create cicd-net
+```
+
+---
+
+## 2️⃣ Run SonarQube (Community Edition)
+
+Use the `community` image as you prefer:
+
+```bash
 docker run -d --name sonarqube \
   --network cicd-net \
   -p 9000:9000 \
   sonarqube:community
 ```
 
-Then open: `http://localhost:9000`
+Then open in browser: `http://localhost:9000`
 
-* Default login: `admin / admin`
-* It will ask you to change password.
-* Create a **new project** (we’ll wire it to Jenkins later).
-* Generate a **User Token** (Administration → Security → Users → Tokens).
-  Save it (we’ll put this in Jenkins credentials as `sonar-token` or similar).
+* Login: `admin / admin`
+* It will prompt you to change password → do that.
 
+### 2.1 Create a Sonar token (secret)
+
+Inside SonarQube:
+
+1. Click your user icon (top right) → **My Account** → **Security** (or Tokens).
+2. Generate a new token, name like: `jenkins-token`.
+3. Copy the token string somewhere safe (you’ll use it in Jenkins).
+
+We’ll call this **`sonarqube-token`** inside Jenkins.
 
 ---
 
-## 3. Jenkins in Docker (with Docker CLI inside)
+## 3️⃣ Run Jenkins (with docker + git installed)
 
-Create a folder, e.g. `~/jenkins-docker`, with this **Dockerfile**:
+Create a folder for Jenkins image:
+
+```bash
+mkdir -p ~/jenkins-docker
+cd ~/jenkins-docker
+```
+
+Create `Dockerfile` (or `Dockerfile.jenkins`) with:
 
 ```Dockerfile
-# Dockerfile.jenkins
 FROM jenkins/jenkins:lts
 
 USER root
 
-# Install docker client so Jenkins can run `docker build`, `docker push`
+# Install docker client and git in the Jenkins image
 RUN apt-get update && \
-    apt-get install -y docker.io && \
+    apt-get install -y docker.io git && \
     rm -rf /var/lib/apt/lists/*
 
 USER jenkins
 ```
 
-Build and run:
+Build the image:
 
 ```bash
-cd ~/jenkins-docker
 docker build -t my-jenkins .
+```
 
+Run Jenkins:
+
+```bash
 docker run -d --name jenkins \
   --network cicd-net \
   -p 8080:8080 -p 50000:50000 \
@@ -106,20 +96,22 @@ docker run -d --name jenkins \
   my-jenkins
 ```
 
-* Jenkins UI: `http://localhost:8080`
-* Get initial admin password (inside container):
+* `jenkins_home` = persistent Jenkins data
+* `/var/run/docker.sock` = lets Jenkins use host Docker
+
+Open Jenkins: `http://localhost:8080`
+
+Get initial password:
 
 ```bash
 docker exec -it jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 ```
 
-Install **Suggested plugins**.
+Paste into browser, install **Suggested plugins**.
 
 ---
 
-## 4. Configure Jenkins (one-time setup)
-
-### 4.1 Install plugins
+## 4️⃣ Jenkins: install required plugins
 
 In Jenkins UI:
 
@@ -127,56 +119,112 @@ In Jenkins UI:
 
   * Install:
 
-    * *Pipeline*
-    * *Git*
-    * *SonarQube Scanner for Jenkins*
+    * **Pipeline** (if not already)
+    * **Git plugin**
+    * **SonarQube Scanner for Jenkins**
 
-Restart if asked.
-
-### 4.2 Add credentials
-
-**Docker Hub credentials**
-
-* Manage Jenkins → Credentials → System → Global credentials
-* Add:
-
-  * Kind: **Username with password**
-  * ID: `dockerhub-creds`
-  * Username: `nikhil230`
-  * Password: `dckr_pat_oDvDWpwRnz6xEICGviNnkjykVQc`
-
-**SonarQube token**
-
-* Kind: **Secret text**
-* ID: `sonarqube-token`
-* Secret: squ_84e79d774accbc58667d58fd52f49e0e7a333c61
-
-**github token** - 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
-
-### 4.3 Configure SonarQube server in Jenkins
-
-* Manage Jenkins → System
-
-* Find **SonarQube servers**
-
-  * Add server, e.g.:
-
-    * Name: `local-sonar`
-    * Server URL: `http://sonarqube:9000` (because they are on same Docker network `cicd-net`)
-    * Server authentication token: select `sonarqube-token`
-
-* Manage Jenkins → Tools → SonarQube Scanner
-
-  * Add a scanner:
-
-    * Name: `sonar-scanner`
-    * Let Jenkins auto-install a version.
+Restart Jenkins if it asks.
 
 ---
 
-## 5. Add `sonar-project.properties` to your repo
+## 5️⃣ Jenkins: create all credentials (secrets)
 
-At repo root, create **sonar-project.properties**:
+We need **3 secrets**:
+
+1. Docker Hub credentials
+2. SonarQube token
+3. GitHub credentials (PAT)
+
+Go to: **Manage Jenkins → Credentials → System → Global credentials (unrestricted)** → **Add Credentials**.
+
+---
+
+### 5.1 Docker Hub credentials
+
+* **Kind**: `Username with password`
+* **ID**: `dockerhub-creds`  ← **important, used in Jenkinsfile**
+* **Username**: `nikhil230`
+* **Password**: your Docker Hub password or access token
+
+Save.
+
+---
+
+### 5.2 SonarQube token
+
+* **Kind**: `Secret text`
+* **ID**: `sonarqube-token`  ← used in Sonar server config
+* **Secret**: `<token you generated in SonarQube>`
+
+Save.
+
+---
+
+### 5.3 GitHub credentials (for pushing back to main)
+
+1. In **GitHub**, create a **Personal Access Token** (PAT)
+
+   * Permissions: `repo` (for your own repos, that’s enough).
+
+2. In Jenkins, add:
+
+* **Kind**: `Username with password`
+* **ID**: `github-creds`  ← used in Jenkinsfile
+* **Username**: your GitHub username (e.g. `nikhil230`)
+* **Password**: the GitHub PAT
+
+Save.
+
+---
+
+## 6️⃣ Jenkins: configure SonarQube server + scanner
+
+### 6.1 SonarQube server
+
+* **Manage Jenkins → System**
+* Find **SonarQube servers**
+
+  * Add:
+
+    * Name: `local-sonar`
+    * Server URL: `http://sonarqube:9000`
+    * Server authentication token: choose `sonarqube-token`
+* Tick “Environment variables” (if present) so `withSonarQubeEnv` works.
+* Save.
+
+### 6.2 SonarQube Scanner
+
+* **Manage Jenkins → Tools**
+* Under **SonarQube Scanner**:
+
+  * Add a new installation:
+
+    * Name: `sonar-scanner`
+    * Check “Install automatically” (latest version is fine).
+* Save.
+
+---
+
+## 7️⃣ Repo structure & project files
+
+On your GitHub repo, structure should be like:
+
+```text
+your-repo/
+  app/
+    Dockerfile
+    main.py
+    requirements.txt
+  manifest/
+    deployment.yaml
+    service.yaml
+  sonar-project.properties
+  Jenkinsfile
+```
+
+### 7.1 `sonar-project.properties` at repo root
+
+Create this file at the root of your repo:
 
 ```properties
 sonar.projectKey=flask-cicd
@@ -192,20 +240,20 @@ sonar.python.version=3
 sonar.sourceEncoding=UTF-8
 ```
 
-Later we can tune rules; this is enough to start.
+Commit & push it.
 
 ---
 
-## 6. Add Jenkinsfile to your repo (CI pipeline)
+## 8️⃣ Final Jenkinsfile (complete CI + GitHub push)
 
-At the root of your repo, add a file named **Jenkinsfile**:
+Create **`Jenkinsfile`** at the repo root with this content:
 
 ```groovy
 pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "nikhil230/ci-cd"
+        IMAGE_NAME      = "nikhil230/ci-cd"
         DOCKERHUB_CREDS = credentials('dockerhub-creds')
     }
 
@@ -224,7 +272,8 @@ pipeline {
                 . venv/bin/activate
                 pip install --upgrade pip
                 pip install -r requirements.txt
-                # TODO: add real tests here; for now just syntax check
+
+                # Basic syntax check for now
                 python -m py_compile main.py
                 '''
             }
@@ -264,12 +313,49 @@ pipeline {
         stage('Update Kubernetes Manifest') {
             steps {
                 sh '''
-                # Replace placeholder tag in deployment.yaml
+                # Update image tag in deployment.yaml
                 sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" manifest/deployment.yaml
 
                 echo "Updated deployment.yaml:"
                 cat manifest/deployment.yaml
                 '''
+            }
+        }
+
+        stage('Commit & Push Manifests') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'github-creds',
+                                                  usernameVariable: 'GIT_USER',
+                                                  passwordVariable: 'GIT_TOKEN')]) {
+                    sh '''
+                    # Configure Git identity for Jenkins
+                    git config user.name "Jenkins CI"
+                    git config user.email "jenkins@example.com"
+
+                    # Show current status
+                    git status
+
+                    # Add only the changed manifest file
+                    git add manifest/deployment.yaml || echo "Nothing to add"
+
+                    # Commit changes if any
+                    git commit -m "Update image tag to ${BUILD_NUMBER}" || echo "No changes to commit"
+
+                    # Prepare repo URL with credentials for push
+                    REPO_URL=$(git config --get remote.origin.url)
+
+                    # Ensure it's HTTPS
+                    if echo "$REPO_URL" | grep -q "^git@github.com"; then
+                        echo "Remote is SSH; converting to HTTPS"
+                        REPO_URL="https://github.com/${REPO_URL#*:}"
+                    fi
+
+                    REPO_URL_WITH_CREDS=${REPO_URL/https:\/\//https://$GIT_USER:$GIT_TOKEN@}
+
+                    # Push to main branch
+                    git push "$REPO_URL_WITH_CREDS" HEAD:main || echo "Push failed"
+                    '''
+                }
             }
         }
 
@@ -282,56 +368,60 @@ pipeline {
 }
 ```
 
-Notes:
+> Assumptions:
+>
+> * Your main branch is `main` (change `HEAD:main` to `HEAD:master` if needed).
+> * Your GitHub remote is HTTPS (if it’s SSH, the script converts it to HTTPS).
 
-* Uses your placeholder `replaceImageTag` in `deployment.yaml` and replaces it with `${BUILD_NUMBER}`. 
-* Builds Docker image from `app/Dockerfile` and pushes it to `nikhil230/ci-cd:${BUILD_NUMBER}`.
-* Sonar stage uses the scanner we configured and the Sonar server `local-sonar`.
+Commit & push this Jenkinsfile to your repo.
 
 ---
 
-## 7. Create a Jenkins Pipeline job
+## 9️⃣ Create Jenkins Pipeline job
 
 In Jenkins UI:
 
 1. **New Item → Pipeline**
-2. Name: e.g. `flask-cicd-pipeline`
-3. Pipeline → Definition: **Pipeline script from SCM**
+2. Name: `flask-cicd-pipeline` (or any name)
+3. Type: **Pipeline**
+4. Under **Pipeline**:
 
-   * SCM: Git
-   * Repo URL: your Git repo (GitHub/GitLab/whatever)
-   * Branch: `*/main` (or your branch)
-4. Save.
-5. Click **Build Now**.
-
-If everything’s wired correctly, you should see stages:
-
-* Checkout
-* Install deps & basic checks
-* SonarQube Analysis
-* Build Docker Image
-* Push to Docker Hub
-* Update Kubernetes Manifest
-* Archive Manifests
-
-After a successful run:
-
-* Docker Hub: `nikhil230/ci-cd:<build-number>` should exist.
-* In Jenkins build page → **Artifacts**: updated `deployment.yaml` & `service.yaml` for use by ArgoCD/minikube.
+   * Definition: **Pipeline script from SCM**
+   * SCM: **Git**
+   * Repository URL: `https://github.com/<your-user>/<your-repo>.git`
+   * Credentials: (none) – repo is public
+   * Branch: `*/main`
+5. Save.
 
 ---
 
-## 8. What we can do next (after CI works once)
+## 🔟 Run your first build
 
-Once you confirm:
+* Click your job → **Build Now**
+* Watch the stages:
 
-* Jenkins container + SonarQube up
-* Pipeline runs end-to-end
-* Image appears in Docker Hub
-* Manifest updated
+  * Checkout
+  * Install deps & basic checks
+  * SonarQube Analysis
+  * Build Docker Image
+  * Push to Docker Hub
+  * Update Kubernetes Manifest
+  * Commit & Push Manifests
+  * Archive Manifests
 
-Then we’ll:
+After it finishes:
 
-* Set up **minikube** + **ArgoCD** on your machine
-* Point ArgoCD to your Git repo so that **CD** is fully GitOps (it will pull the updated manifest with the new image tag and sync).
+* Docker Hub should show `nikhil230/ci-cd:<build-number>`.
+* GitHub:
 
+  * `manifest/deployment.yaml` should now have `image: nikhil230/ci-cd:<build-number>`.
+* SonarQube:
+
+  * You should see project `flask-cicd` with analysis results.
+
+---
+
+If you want next, you can paste:
+
+* A screenshot or copy of any Jenkins error log (if a stage fails),
+  and I’ll debug just that stage with you. After CI is solid, we’ll move on to **ArgoCD + minikube** for CD.
