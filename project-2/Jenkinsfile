@@ -65,7 +65,7 @@ pipeline {
             steps {
                 sh '''
                 # Update image tag in deployment.yaml under project-2/manifest
-                sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" project-2/manifest/deployment.yaml
+                sed -i "s|image: nikhil230/ci-cd:.*|image: nikhil230/ci-cd:${BUILD_NUMBER}|" project-2/manifest/deployment.yaml
 
                 echo "Updated deployment.yaml:"
                 cat project-2/manifest/deployment.yaml
