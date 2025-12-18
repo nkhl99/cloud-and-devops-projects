@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: flask-cicd
-  namespace: argocd
+  namespace: agcd
 spec:
   project: default
 
