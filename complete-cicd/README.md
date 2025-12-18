@@ -372,6 +372,176 @@ What you now have:
 
 ---
 
-# 🎯 Next Steps (CD)
 
+# 🧠 CD Pipeline (ArgoCD + Minikube)
 
+## 1️⃣ Start Minikube
+
+```bash
+minikube start --driver=docker
+kubectl get nodes
+```
+
+---
+
+## 2️⃣ Install ArgoCD
+
+```bash
+kubectl create namespace agcd
+kubectl apply -n agcd \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+```
+
+---
+
+## 3️⃣ Expose ArgoCD UI
+
+```bash
+kubectl port-forward svc/argocd-server -n agcd 8081:443
+```
+
+Open: **[https://localhost:8081](https://localhost:8081)**
+
+Get initial password:
+
+```bash
+kubectl -n agcd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d
+```
+
+---
+
+## 4️⃣ Fix ArgoCD RBAC (minikube convenience)
+
+```bash
+kubectl create clusterrolebinding argocd-application-controller-admin \
+  --clusterrole=cluster-admin \
+  --serviceaccount=agcd:argocd-application-controller
+```
+
+This allows ArgoCD to read cluster resources.
+
+---
+
+## 5️⃣ Kustomization for Manifests
+
+`manifest/kustomization.yaml`:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: default
+
+commonAnnotations:
+  owner: Nikhil-Kumar
+
+resources:
+- deployment.yaml
+- service.yaml
+```
+
+ArgoCD will automatically detect and use Kustomize.
+
+---
+
+## 6️⃣ ArgoCD Application (GitOps)
+
+`flask-cicd-application.yaml`:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flask-cicd
+  namespace: agcd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/nkhl99/cloud-and-devops-projects.git
+    targetRevision: main
+    path: complete-cicd/argocd-application
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+Apply:
+
+```bash
+kubectl apply -f flask-cicd-application.yaml
+```
+
+ArgoCD will now:
+
+* Watch GitHub repo
+* Automatically detect new image tag commits
+* Auto-sync & deploy to Minikube
+
+---
+
+# 🔍 Verify Deployment
+
+```bash
+kubectl get deployment
+kubectl get svc
+```
+
+To access service via NodePort:
+
+```bash
+minikube service flask-app-service --url
+```
+
+You’ll get something like:
+
+```
+http://127.0.0.1:64239
+```
+
+To access via port-forward:
+
+```bash
+kubectl port-forward svc/flask-app-service 8082:8080
+```
+
+Visit:
+
+> [http://localhost:8082](http://localhost:8082)
+
+---
+
+# 🎉 Full GitOps Flow (End-to-End)
+
+1. Developer pushes code → GitHub
+2. Jenkins pipeline starts
+3. SonarQube static analysis
+4. Build & push Docker image: `ci-cd:BUILD_NUMBER`
+5. Update manifest image tag
+6. Commit & push manifest to GitHub
+7. ArgoCD detects commit
+8. ArgoCD syncs to Minikube
+9. Minikube rolls out new deployment
+10. App accessible instantly
+
+---
+
+# 🏁 Final Result
+
+You now have:
+
+* Fully automated CI/CD using **GitHub → Jenkins → Docker Hub → ArgoCD → Minikube**
+* Zero-click CD thanks to **ArgoCD auto-sync**
+* Clean manifest management using **Kustomize**
+* Code quality enforced by **SonarQube**
+* Real GitOps: the **Git repo *is* the source of truth**
+
+This is a **professional-grade workflow**, identical to real enterprise DevOps pipelines.
