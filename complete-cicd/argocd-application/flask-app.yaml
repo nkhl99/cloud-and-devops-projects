@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/nkhl99/cloud-and-devops-projects.git
     targetRevision: main
-    path: complete-cicd/argocd-application
+    path: complete-cicd/manifest
 
   # --- DESTINATION: where to deploy ---
   destination:
