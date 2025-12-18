@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flask-cicd
+  namespace: argocd
+spec:
+  project: default
+
+  # --- SOURCE: your Git repo ---
+  source:
+    repoURL: https://github.com/nkhl99/cloud-and-devops-projects.git
+    targetRevision: main
+    path: complete-cicd/argocd-application
+
+  # --- DESTINATION: where to deploy ---
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default         # Kustomize sets namespace=default anyway
+
+  # --- SYNC POLICY 
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
