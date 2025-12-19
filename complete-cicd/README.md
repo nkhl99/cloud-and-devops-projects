@@ -387,8 +387,8 @@ kubectl get nodes
 ## 2️⃣ Install ArgoCD
 
 ```bash
-kubectl create namespace agcd
-kubectl apply -n agcd \
+kubectl create namespace argocd
+kubectl apply -n argocd \
   -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 ```
 
@@ -397,7 +397,7 @@ kubectl apply -n agcd \
 ## 3️⃣ Expose ArgoCD UI
 
 ```bash
-kubectl port-forward svc/argocd-server -n agcd 8081:443
+kubectl port-forward svc/argocd-server -n argocd 8081:443
 ```
 
 Open: **[https://localhost:8081](https://localhost:8081)**
@@ -405,7 +405,7 @@ Open: **[https://localhost:8081](https://localhost:8081)**
 Get initial password:
 
 ```bash
-kubectl -n agcd get secret argocd-initial-admin-secret \
+kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d
 ```
 
@@ -416,7 +416,7 @@ kubectl -n agcd get secret argocd-initial-admin-secret \
 ```bash
 kubectl create clusterrolebinding argocd-application-controller-admin \
   --clusterrole=cluster-admin \
-  --serviceaccount=agcd:argocd-application-controller
+  --serviceaccount=argocd:argocd-application-controller
 ```
 
 This allows ArgoCD to read cluster resources.
@@ -453,7 +453,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: flask-cicd
-  namespace: agcd
+  namespace: argocd
 spec:
   project: default
 
